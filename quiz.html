@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JSON QUIZ</title>
+<style>
+  :root{
+    --paper: #f3eee1;
+    --paper-dark: #ece4d1;
+    --line: #d9cfb0;
+    --ink: #23304a;
+    --ink-soft: #5b6a86;
+    --red: #b23a34;
+    --green: #2f7d4f;
+    --amber: #c98a2a;
+    --shadow: rgba(35,48,74,0.18);
+    --font-type: "Courier New", Courier, monospace;
+    --font-serif: Georgia, "Times New Roman", serif;
+    --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body{
+    margin:0;
+    min-height:100vh;
+    background: #dcd3bd;
+    background-image:
+      radial-gradient(circle at 20% 20%, rgba(255,255,255,0.35), transparent 40%),
+      radial-gradient(circle at 80% 80%, rgba(0,0,0,0.05), transparent 45%);
+    font-family: var(--font-ui);
+    color: var(--ink);
+    display:flex;
+    align-items:flex-start;
+    justify-content:center;
+    padding: 40px 16px;
+  }
+
+  .app-title{
+    position:fixed;
+    top:18px;
+    left:24px;
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 14px;
+    color: var(--ink-soft);
+    letter-spacing: 0.04em;
+  }
+
+  .reload-link{
+    position:fixed;
+    top:16px;
+    right:24px;
+    font-family: var(--font-ui);
+    font-size: 12px;
+    color: var(--ink-soft);
+    background:none;
+    border:1px solid var(--line);
+    border-radius: 4px;
+    padding: 6px 10px;
+    cursor:pointer;
+  }
+  .reload-link:hover{ color: var(--ink); border-color: var(--ink-soft); }
+  .reload-link[hidden]{ display:none; }
+
+  .sheet{
+    position:relative;
+    width:100%;
+    max-width: 560px;
+    margin-top: 48px;
+    background: var(--paper);
+    border-radius: 3px;
+    box-shadow: 0 18px 40px var(--shadow), 0 2px 0 rgba(0,0,0,0.04);
+    transform: rotate(-0.35deg);
+    padding: 40px 34px 34px 56px;
+  }
+
+  /* ruled left margin like an answer sheet */
+  .sheet::before{
+    content:"";
+    position:absolute;
+    top:0; bottom:0; left:34px;
+    width:2px;
+    background: var(--red);
+    opacity:0.45;
+  }
+  .sheet .hole{
+    position:absolute;
+    left:16px;
+    width:10px; height:10px;
+    border-radius:50%;
+    background: #dcd3bd;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.25);
+  }
+  .hole.h1{ top: 40px; }
+  .hole.h2{ top: 50%; margin-top:-5px; }
+  .hole.h3{ bottom: 40px; }
+
+  .screen{ display:none; }
+  .screen.active{ display:block; }
+
+  /* ---------- upload screen ---------- */
+  #upload-screen h1{
+    font-family: var(--font-serif);
+    font-size: 26px;
+    margin: 0 0 6px;
+  }
+  #upload-screen p.lead{
+    font-family: var(--font-ui);
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    margin: 0 0 26px;
+    line-height:1.6;
+  }
+  .drop{
+    border: 2px dashed var(--line);
+    border-radius: 4px;
+    padding: 28px 18px;
+    text-align:center;
+    background: var(--paper-dark);
+  }
+  .drop p{ margin: 0 0 14px; font-size: 13px; color: var(--ink-soft); }
+  .file-btn{
+    display:inline-block;
+    font-family: var(--font-ui);
+    font-weight:600;
+    font-size: 13px;
+    background: var(--amber);
+    color: #fff;
+    border: none;
+    border-radius: 3px;
+    padding: 10px 20px;
+    cursor:pointer;
+  }
+  .file-btn:hover{ filter: brightness(1.05); }
+  input[type=file]{ display:none; }
+
+  .format-note{
+    margin-top: 18px;
+    font-size: 12px;
+    color: var(--ink-soft);
+    font-family: var(--font-type);
+    background: var(--paper-dark);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 10px 12px;
+    white-space: pre;
+    overflow-x:auto;
+  }
+  .error-box{
+    margin-top: 16px;
+    font-family: var(--font-serif);
+    font-style: italic;
+    color: var(--red);
+    font-size: 13.5px;
+  }
+  .error-box[hidden]{ display:none; }
+
+  /* ---------- quiz screen ---------- */
+  .stamp-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    margin-bottom: 18px;
+  }
+  .stamp{
+    font-family: var(--font-type);
+    font-size: 12.5px;
+    color: var(--amber);
+    border: 2px solid var(--amber);
+    border-radius: 4px;
+    padding: 4px 10px;
+    transform: rotate(2deg);
+    white-space:nowrap;
+  }
+  .round-label{
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    margin-top:6px;
+  }
+  .progress-track{
+    height: 5px;
+    background: var(--line);
+    border-radius: 3px;
+    overflow:hidden;
+    margin-bottom: 28px;
+  }
+  .progress-fill{
+    height:100%;
+    background: var(--amber);
+    width:0%;
+    transition: width 0.3s ease;
+  }
+
+  .question-text{
+    font-family: var(--font-type);
+    font-size: 19px;
+    line-height:1.65;
+    color: var(--ink);
+    margin: 0 0 22px;
+    min-height: 60px;
+    white-space: pre-wrap;
+  }
+
+  .answer-line{
+    width:100%;
+    font-family: var(--font-type);
+    font-size: 16px;
+    color: var(--ink);
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid var(--ink);
+    padding: 6px 2px 8px;
+    outline:none;
+  }
+  .answer-line::placeholder{ color: #9aa5b8; font-style: italic; }
+  .answer-line:disabled{ color: var(--ink-soft); border-bottom-color: var(--line); }
+
+  .hint{
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    margin: 8px 0 24px;
+  }
+
+  .feedback{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    min-height: 54px;
+    margin-bottom: 10px;
+  }
+  .feedback .mark{ width:46px; height:46px; flex:none; }
+  .feedback .mark path{ fill:none; stroke-width:9; stroke-linecap:round; stroke-linejoin:round; }
+  .feedback .correction{
+    font-family: var(--font-serif);
+    font-style: italic;
+    color: var(--red);
+    font-size: 15px;
+    transform: rotate(-1.2deg);
+  }
+  .feedback[hidden]{ display:none; }
+
+  .actions{ display:flex; justify-content:flex-end; gap:10px; margin-top: 6px; }
+  .btn{
+    font-family: var(--font-ui);
+    font-weight:600;
+    font-size: 13px;
+    border-radius: 3px;
+    padding: 10px 20px;
+    cursor:pointer;
+    border: 2px solid var(--ink);
+    background: var(--ink);
+    color: var(--paper);
+  }
+  .btn:hover{ filter: brightness(1.15); }
+  .btn.secondary{ background: transparent; color: var(--ink); }
+  .btn:disabled{
+    opacity:0.35;
+    cursor:not-allowed;
+    filter:none;
+  }
+
+  /* ---------- result screen ---------- */
+  #result-screen{ text-align:center; }
+  .grade-stamp{
+    width: 140px; height:140px;
+    margin: 6px auto 20px;
+    border-radius:50%;
+    border: 3px double var(--red);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    color: var(--red);
+    transform: rotate(-6deg);
+    font-family: var(--font-serif);
+  }
+  .grade-stamp .num{ font-size: 34px; font-weight:bold; line-height:1; }
+  .grade-stamp .of{ font-size: 13px; margin-top:4px; }
+  .result-title{
+    font-family: var(--font-serif);
+    font-size: 20px;
+    margin: 0 0 4px;
+  }
+  .result-sub{
+    font-family: var(--font-ui);
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin: 0 0 28px;
+  }
+  .retry-options{
+    display:flex;
+    flex-direction:column;
+    gap: 10px;
+    max-width: 360px;
+    margin: 0 auto;
+  }
+  .retry-btn{
+    font-family: var(--font-ui);
+    font-size: 14px;
+    font-weight:600;
+    text-align:left;
+    padding: 13px 16px;
+    border-radius: 4px;
+    border: 1px solid var(--line);
+    background: var(--paper-dark);
+    color: var(--ink);
+    cursor:pointer;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+  .retry-btn:hover:not(:disabled){ border-color: var(--amber); }
+  .retry-btn:disabled{
+    opacity:0.4;
+    cursor:not-allowed;
+  }
+  .retry-btn .count{ font-family: var(--font-type); font-size:12.5px; color: var(--ink-soft); }
+
+  @media (max-width: 480px){
+    .sheet{ padding: 34px 20px 28px 44px; }
+    .sheet::before{ left:24px; }
+    .sheet .hole{ left:8px; }
+    .question-text{ font-size: 17px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app-title">JSON QUIZ</div>
+<button class="reload-link" id="reload-btn" hidden>別のファイルを読み込む</button>
+
+<div class="sheet">
+  <span class="hole h1"></span>
+  <span class="hole h2"></span>
+  <span class="hole h3"></span>
+
+  <!-- upload screen -->
+  <section id="upload-screen" class="screen active">
+    <h1>問題ファイルを読み込む</h1>
+    <p class="lead">{"質問": "答え", ...} という形式のJSONファイルを選んでください。読み込むとランダムな順序で出題されます。</p>
+    <div class="drop">
+      <p>JSONファイルを選択してください</p>
+      <label class="file-btn" for="file-input">ファイルを選ぶ</label>
+      <input type="file" id="file-input" accept=".json,application/json">
+    </div>
+    <div class="format-note">例: {"日本の首都は?": "東京", "2+3は?": "5"}</div>
+    <div class="error-box" id="error-box" hidden></div>
+  </section>
+
+  <!-- quiz screen -->
+  <section id="quiz-screen" class="screen">
+    <div class="stamp-row">
+      <div>
+        <div class="stamp" id="progress-stamp">設問 1 / 1</div>
+        <div class="round-label" id="round-label"></div>
+      </div>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+
+    <p class="question-text" id="question-text"></p>
+
+    <input type="text" class="answer-line" id="answer-input" placeholder="ここに答えを記入" autocomplete="off">
+    <p class="hint">※ 完全に一致した場合のみ正解になります(前後の空白は無視されます)</p>
+
+    <div class="feedback" id="feedback" hidden>
+      <div class="mark" id="mark-holder"></div>
+      <div class="correction" id="correction-text"></div>
+    </div>
+
+    <div class="actions">
+      <button class="btn" id="submit-btn">採点する</button>
+      <button class="btn" id="next-btn" hidden>次の設問へ</button>
+    </div>
+  </section>
+
+  <!-- result screen -->
+  <section id="result-screen" class="screen">
+    <div class="grade-stamp">
+      <div class="num" id="score-num">0/0</div>
+      <div class="of">正解</div>
+    </div>
+    <h2 class="result-title">この回のテストが終わりました</h2>
+    <p class="result-sub" id="result-sub"></p>
+    <div class="retry-options">
+      <button class="retry-btn" id="retry-wrong">
+        <span>間違えた問題だけやり直す</span>
+        <span class="count" id="count-wrong"></span>
+      </button>
+      <button class="retry-btn" id="retry-correct">
+        <span>正解した問題だけやり直す</span>
+        <span class="count" id="count-correct"></span>
+      </button>
+      <button class="retry-btn" id="retry-all">
+        <span>全部の問題をやり直す</span>
+        <span class="count" id="count-all"></span>
+      </button>
+    </div>
+  </section>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const CHECK_SVG = '<svg class="mark" viewBox="0 0 100 100"><path d="M8 52 L38 82 L94 18"/></svg>';
+  const CROSS_SVG = '<svg class="mark" viewBox="0 0 100 100"><path d="M14 14 L86 86 M86 14 L14 86"/></svg>';
+
+  let originalQuestions = [];   // {q, a} full set from the loaded file
+  let roundQuestions = [];      // shuffled subset for the current round
+  let currentIndex = 0;
+  let roundCorrect = [];
+  let roundIncorrect = [];
+  let answered = false;
+
+  const screens = {
+    upload: document.getElementById('upload-screen'),
+    quiz: document.getElementById('quiz-screen'),
+    result: document.getElementById('result-screen'),
+  };
+
+  function showScreen(name){
+    Object.values(screens).forEach(s => s.classList.remove('active'));
+    screens[name].classList.add('active');
+    document.getElementById('reload-btn').hidden = (name === 'upload');
+  }
+
+  function shuffle(arr){
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  // ---------- file loading ----------
+  const fileInput = document.getElementById('file-input');
+  const errorBox = document.getElementById('error-box');
+
+  fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    errorBox.hidden = true;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      let data;
+      try {
+        data = JSON.parse(reader.result);
+      } catch (err) {
+        showError('このファイルはJSONとして読み取れませんでした。形式を確認してください。');
+        return;
+      }
+      if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+        showError('{"質問": "答え", ...} の形式のオブジェクトが必要です。');
+        return;
+      }
+      const entries = Object.keys(data).map(q => ({ q: q, a: String(data[q]) }));
+      if (entries.length === 0) {
+        showError('問題が1つも見つかりませんでした。');
+        return;
+      }
+      originalQuestions = entries;
+      startRound(originalQuestions, '全部の問題');
+    };
+    reader.onerror = () => showError('ファイルの読み込み中にエラーが発生しました。');
+    reader.readAsText(file, 'utf-8');
+    fileInput.value = '';
+  });
+
+  function showError(msg){
+    errorBox.textContent = msg;
+    errorBox.hidden = false;
+  }
+
+  document.getElementById('reload-btn').addEventListener('click', () => {
+    originalQuestions = [];
+    showScreen('upload');
+  });
+
+  // ---------- quiz flow ----------
+  const progressStamp = document.getElementById('progress-stamp');
+  const roundLabelEl = document.getElementById('round-label');
+  const progressFill = document.getElementById('progress-fill');
+  const questionText = document.getElementById('question-text');
+  const answerInput = document.getElementById('answer-input');
+  const feedback = document.getElementById('feedback');
+  const markHolder = document.getElementById('mark-holder');
+  const correctionText = document.getElementById('correction-text');
+  const submitBtn = document.getElementById('submit-btn');
+  const nextBtn = document.getElementById('next-btn');
+
+  function startRound(questions, label){
+    roundQuestions = shuffle(questions);
+    currentIndex = 0;
+    roundCorrect = [];
+    roundIncorrect = [];
+    roundLabelEl.textContent = label;
+    showScreen('quiz');
+    renderQuestion();
+  }
+
+  function renderQuestion(){
+    answered = false;
+    const total = roundQuestions.length;
+    const q = roundQuestions[currentIndex];
+
+    progressStamp.textContent = '設問 ' + (currentIndex + 1) + ' / ' + total;
+    progressFill.style.width = (currentIndex / total * 100) + '%';
+
+    questionText.textContent = q.q;
+    answerInput.value = '';
+    answerInput.disabled = false;
+    feedback.hidden = true;
+    markHolder.innerHTML = '';
+    correctionText.textContent = '';
+
+    submitBtn.hidden = false;
+    nextBtn.hidden = true;
+
+    answerInput.focus();
+  }
+
+  function submitAnswer(){
+    if (answered) return;
+    answered = true;
+    const q = roundQuestions[currentIndex];
+    const given = answerInput.value.trim();
+    const isCorrect = given === q.a.trim();
+
+    if (isCorrect) {
+      roundCorrect.push(q);
+    } else {
+      roundIncorrect.push(q);
+    }
+
+    answerInput.disabled = true;
+    feedback.hidden = false;
+    markHolder.innerHTML = isCorrect ? CHECK_SVG : CROSS_SVG;
+    animateMark(markHolder.querySelector('path'), isCorrect);
+    correctionText.textContent = isCorrect ? '' : ('正解: ' + q.a);
+
+    submitBtn.hidden = true;
+    nextBtn.hidden = false;
+    nextBtn.focus();
+  }
+
+  function animateMark(path, isCorrect){
+    if (!path) return;
+    path.style.stroke = isCorrect ? 'var(--green)' : 'var(--red)';
+    const length = path.getTotalLength();
+    path.style.strokeDasharray = length;
+    path.style.strokeDashoffset = length;
+    path.getBoundingClientRect(); // force reflow
+    if (prefersReducedMotion) {
+      path.style.strokeDashoffset = 0;
+    } else {
+      path.style.transition = 'stroke-dashoffset 0.45s ease-out';
+      requestAnimationFrame(() => { path.style.strokeDashoffset = 0; });
+    }
+  }
+
+  function nextQuestion(){
+    currentIndex++;
+    if (currentIndex >= roundQuestions.length) {
+      showResult();
+    } else {
+      renderQuestion();
+    }
+  }
+
+  submitBtn.addEventListener('click', submitAnswer);
+  nextBtn.addEventListener('click', nextQuestion);
+  answerInput.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    if (!answered) submitAnswer(); else nextQuestion();
+  });
+  nextBtn.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); nextQuestion(); }
+  });
+
+  // ---------- result screen ----------
+  const scoreNum = document.getElementById('score-num');
+  const resultSub = document.getElementById('result-sub');
+  const retryWrong = document.getElementById('retry-wrong');
+  const retryCorrect = document.getElementById('retry-correct');
+  const retryAll = document.getElementById('retry-all');
+  const countWrong = document.getElementById('count-wrong');
+  const countCorrect = document.getElementById('count-correct');
+  const countAll = document.getElementById('count-all');
+
+  function showResult(){
+    progressFill.style.width = '100%';
+    const total = roundQuestions.length;
+    scoreNum.textContent = roundCorrect.length + '/' + total;
+    resultSub.textContent = total + '問中 ' + roundCorrect.length + '問正解、' + roundIncorrect.length + '問不正解でした。';
+
+    countWrong.textContent = roundIncorrect.length + '問';
+    countCorrect.textContent = roundCorrect.length + '問';
+    countAll.textContent = originalQuestions.length + '問';
+
+    retryWrong.disabled = roundIncorrect.length === 0;
+    retryCorrect.disabled = roundCorrect.length === 0;
+
+    showScreen('result');
+  }
+
+  retryWrong.addEventListener('click', () => {
+    if (roundIncorrect.length === 0) return;
+    startRound(roundIncorrect, '再テスト: 間違えた問題');
+  });
+  retryCorrect.addEventListener('click', () => {
+    if (roundCorrect.length === 0) return;
+    startRound(roundCorrect, '再テスト: 正解した問題');
+  });
+  retryAll.addEventListener('click', () => {
+    startRound(originalQuestions, '全部の問題');
+  });
+
+})();
+</script>
+</body>
+</html>
